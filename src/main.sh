@@ -1,16 +1,16 @@
 source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.setting.sh"
 
 key-gen-xray() {
-    local keys=$(xray x25519) && \
-        echo "FATEL_ERROR: failed to generate keys" && \
-        exit -1
+    local keys=$(xray x25519) || { \
+        echo "FATEL_ERROR: failed to generate keys"; \
+        exit -1; }
 
     local priv=$(echo "$keys" | awk '/PrivateKey:/ {print $2}')
     local pub=$(echo "$keys" | awk '/Password:/ {print $2}')
 
-    local sid=$(openssl rand -hex 8) && \
-        echo "FATEL_ERROR: failed to generate sid" && \
-        exit -1
+    local sid=$(openssl rand -hex 8) || { \
+        echo "FATEL_ERROR: failed to generate sid"; \
+        exit -1; }
 
     echo "PrivateKey: $priv" > "$KEYS_PATH"
     echo "Password: $pub" >> "$KEYS_PATH"
@@ -147,7 +147,7 @@ create-symlinks-xray() {
 }
 
 install-xray() {
-    bash -c "$(curl -4 -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install
+    sudo bash -c "$(curl -4 -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install
 }
 
 update-xray() {
@@ -161,11 +161,11 @@ update-beta-xray() {
 }
 
 install-beta-xray() {
-    bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install --beta
+    sudo bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install --beta
 }
 
 remove-xray() {
-    bash -c "$(curl -4 -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ remove
+    sudo bash -c "$(curl -4 -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ remove
 }
 
 setting-xray() {
@@ -175,9 +175,19 @@ setting-xray() {
     enable-xray
 }
 
+install-depens-xray() {
+    sudo apt-get update && sudo apt-get install -y ${PACKAGES} || \
+    sudo dnf install -y ${PACKAGES} || sudo yum install -y ${PACKAGES} || \
+    sudo pacman -Syu --noconfirm ${PACKAGES} ||\
+    sudo zypper install -y ${PACKAGES} || \
+    sudo apk add ${PACKAGES} || \
+    { echo "ERROR: not install depens."; return -1; }
+}
+
 setting-utils-xray() {
-    create-symlinks-xray
+    install-depens-xray
     setting-xray
+    create-symlinks-xray
 }
 
 
@@ -221,16 +231,22 @@ remove-utils-xray() {
     rm -rf "${OPT_UTILS_XRAY}"
 }
 
+include-bbr-xray() {
+    echo "net.ipv4.tcp_congestion_control=bbr" | sudo tee -a /etc/sysctl.conf
+}
+
+include-fq-xray() {
+    echo "net.core.default_qdisc=fq" | sudo tee -a /etc/sysctl.conf
+}
+
 include-qf-bbr-xray() {
     sysctl -n net.core.default_qdisc 2>null | grep -q "fq" && \
-        echo "WARNING: FQ is already on" || \
-        echo "net.core.default_qdisc=fq" >> /etc/sysctl.conf
+        echo "WARNING: FQ is already on" || include-fq-xray
 
     sysctl -n net.ipv4.tcp_congestion_control 2>/dev/null | \
-        grep -q "bbr" && echo "WARNING: BBR is already on." || \
-        echo "net.ipv4.tcp_congestion_control=bbr" >> /etc/sysctl.conf
+        grep -q "bbr" && echo "WARNING: BBR is already on." || include-bbr-xray
 
-    sysctl -p || echo "FATEL_ERROR: FQ and BBR is not on"; return 1
+    sudo sysctl -p || { echo "FATEL_ERROR: FQ and BBR is not on"; return 1; }
 }
 
 show-all-users-xray() {
