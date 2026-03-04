@@ -24,24 +24,16 @@ key-gen-xray() {
 
 # $1 - username
 info-user-xray() {
-    $(jq --arg username "$1" '.inbounds[0].settings.clients[] | select(.email == $email)' "$CONFIG_PATH")
+    jq --arg email "$1" '.inbounds[0].settings.clients[] | select(.email == $email)' "${CONFIG_PATH}"
 }
 
 # $1 - username
 is-user-xray() {
-    local user_data=$(info-user $1)
+    local user_data=$(info-user-xray $1)
     if [[ -n "$user_data" ]]; then
-        echo 1
+        echo 1; return
     fi
     echo 0
-}
-
-# $1 - username
-new-user-xray-row() {
-    local uuid=$(xray uuid)
-    jq --arg email "$1" --arg uuid "$uuid" \
-        '.inbounds[0].settings.clients += [{"email": $email, "id": $uuid, "flow": "xtls-rprx-vision"}]' \
-        "$CONFIG_PATH" > tmp.json && mv tmp.json "$CONFIG_PATH"
 }
 
 restart-xray() {
@@ -75,8 +67,8 @@ print-link-for-user-xray() {
         key-gen-xray
     fi
 
-    if [[ "$(is-user "$1")" -ne "1" ]]; then
-        echo "ERROR: Username $1 is invalid."
+    if [[ "$(is-user-xray "$1")" -ne "1" ]]; then
+        echo "ERROR: Username ${1} is invalid."
         return 1
     fi
 
@@ -90,11 +82,19 @@ print-link-for-user-xray() {
     local pbk=$(awk -F': ' '/Password/ {print $2}' "$KEYS_PATH")
     local sid=$(awk -F': ' '/shortsid/ {print $2}' "$KEYS_PATH")
     local sni=$(jq -r '.inbounds[0].streamSettings.realitySettings.serverNames[0]' "$CONFIG_PATH")
-    local ip=$(curl -4 -s icanhazip.com)
+    local ip=$(ip route get 1.1.1.1 | grep -oP 'src \K\S+')
 
     local link="${protocol}://${uuid}@$ip:${port}?security=reality&path=%2F&host=&mode=auto&sni=${sni}&fp=random&pbk=${pbk}&sid=${sid}&spx=%2F&type=xhttp&encryption=none#${1}"
 
     echo -e "\nLink for include client: \n${link}"
+}
+
+# $1 - username
+new-user-xray-row() {
+    local uuid=$(xray uuid)
+    jq --arg email "$1" --arg uuid "$uuid" \
+        '.inbounds[0].settings.clients += [{"email": $email, "id": $uuid, "flow": "xtls-rprx-vision"}]' \
+        "$CONFIG_PATH" > tmp.json && mv tmp.json "$CONFIG_PATH"
 }
 
 new-user-xray() {
@@ -103,16 +103,16 @@ new-user-xray() {
     if [[ -z "$username" ]]; then
         echo "ERROR: Enter username is empty."
         return 1
-    elif [[ "$(is-user $username)" -eq "1" ]]; then
+    elif [[ "$(is-user-xray $username)" -eq "1" ]]; then
         echo "ERROR: Enter username is exists."
         return 1
     fi
 
-    new-user-xray-row
+    new-user-xray-row "${username}"
 
     restart-xray
 
-    print-link-for-user
+    print-link-for-user-xray "${username}"
 }
 
 create-symlinks-xray() {
@@ -246,13 +246,15 @@ include-qf-bbr-xray() {
     sysctl -n net.ipv4.tcp_congestion_control 2>/dev/null | \
         grep -q "bbr" && echo "WARNING: BBR is already on." || include-bbr-xray
 
-    sudo sysctl -p || { echo "FATEL_ERROR: FQ and BBR is not on"; return 1; }
+    sudo sysctl -p || { echo "FATEL_ERROR: Failed to apply sysctl settings"; return 1; }
+
+    echo "SUCCESS: FQ and BBR are configured."
 }
 
 show-all-users-xray() {
-    [ ! -f "$CONFIG_PATH" ] && echo "ERROR: config file not found"; return 1
+    [ ! -f "$CONFIG_PATH" ] && { echo "ERROR: config file not found"; return 1; }
     jq -r '.inbounds[0].settings.clients[].email' $CONFIG_PATH | \
-    awk 'printf "%d) %s\t", NR, $0}'
+    { awk '{ printf "%d) %s\t", NR, $0 }'; echo; }
 }
 
 work-syslink() {
@@ -260,9 +262,7 @@ work-syslink() {
 
     [ "${func}" = "${FUNCNAME[0]}" ] && { echo "ERROR: Dead symlink ${0}"; return 1; }
 
-    shift 1
-
-    comand -v "${func}" >/dev/null 2>&1 && { "${func}" "${@}"; return "${?}"; }
+    command -v "${func}" >/dev/null 2>&1 && { ${func} ${@}; return "${?}"; }
 
     [ "${func}" = "main.sh" ] && { setting-utils-xray "${@}"; return "${?}"; }
 
@@ -271,4 +271,4 @@ work-syslink() {
     return 1
 }
 
-work-syslink ${@}
+work-syslink "${@}"

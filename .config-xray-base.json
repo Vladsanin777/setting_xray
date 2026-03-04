@@ -27,7 +27,8 @@
       "port": 443,
       "protocol": "vless",
       "settings": {
-        "clients": [],
+        "clients": [
+        ],
         "decryption": "none"
       },
       "streamSettings": {
@@ -47,9 +48,7 @@
           "maxClientVer": "",
           "maxTimeDiff": 0,
           "shortIds": [
-            "8e3daa961be4c6c8"
-          ],
-          "privateKey": "WMEUjK-9QXfNzYpNbfreNRaytrZTBYyOfoLnNSlY02s"
+          ]
         }
       },
       "sniffing": {
