@@ -85,7 +85,7 @@ print-link-for-user-xray() {
     local ip=$(ip route get 1.1.1.1 | grep -oP 'src \K\S+')
 
     local security=$(jq -r '.inbounds[0].streamSettings.security' "${CONFIG_PATH}")
-    local flow=$(jq -r --arg email "${1}" '.inbounds[0].settings.clients[] | select(.email == ${email}) | flow')
+    local flow=$(jq -r --arg email "${1}" '.inbounds[0].settings.clients[] | select(.email == $email) | flow')
     local path="/"
     local spx="/"
     local fake=$(jq -r '.inbounds[0].streamSettings.network' "${CONFIG_PATH}")
