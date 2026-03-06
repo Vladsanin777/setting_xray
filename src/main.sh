@@ -75,7 +75,7 @@ print-link-for-user-xray() {
     local protocol=$(jq -r '.inbounds[0].protocol' "$CONFIG_PATH")
     local port=$(jq -r '.inbounds[0].port' "$CONFIG_PATH")
 
-    local uuid=$(jq -r --arg email "$1" \
+    local uuid=$(jq -r --arg email "${1}" \
         '.inbounds[0].settings.clients[] | select(.email == $email) | .id' \
         "$CONFIG_PATH")
     
@@ -84,9 +84,29 @@ print-link-for-user-xray() {
     local sni=$(jq -r '.inbounds[0].streamSettings.realitySettings.serverNames[0]' "$CONFIG_PATH")
     local ip=$(ip route get 1.1.1.1 | grep -oP 'src \K\S+')
 
-    local link="${protocol}://${uuid}@$ip:${port}?security=reality&path=%2F&host=&mode=auto&sni=${sni}&fp=random&pbk=${pbk}&sid=${sid}&spx=%2F&type=xhttp&encryption=none#${1}"
+    local security=$(jq -r '.inbounds[0].streamSettings.security' "${CONFIG_PATH}")
+    local flow=$(jq -r --arg email "${1}" '.inbounds[0].settings.clients[] | select(.email == ${email}) | flow'
+    local path="/"
+    local spx="/"
+    local fake=$(jq -r '.inbounds[0].streamSettings.network' "${CONFIG_PATH}")
 
-    echo -e "\nLink for include client: \n${link}"
+    local fragment=$(curl -Gso /dev/null -w "%{url_effective}" --data-urlencode "#$1" "" | cut -c 3-)
+
+    local query_string=$(curl -Gso /dev/null -w "%{url_effective}" \
+        --data-urlencode "security=$security" \
+        --data-urlencode "flow=$flow" \
+        --data-urlencode "sni=$sni" \
+        --data-urlencode "fp=chrome" \
+        --data-urlencode "pbk=$pbk" \
+        --data-urlencode "sid=$sid" \
+        --data-urlencode "type=$fake" \
+        --data-urlencode "path=/" \
+        --data-urlencode "spx=/" \
+        "" | cut -d'?' -f2)
+
+    local link="${protocol}://${uuid}@${ip}:${port}?${query_string}#${fragment}"
+
+    echo -e "\nLink for client: \n${link}"
 }
 
 # $1 - username

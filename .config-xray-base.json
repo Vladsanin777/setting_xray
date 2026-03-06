@@ -1,82 +1,33 @@
 {
-  "log": {
-    "loglevel": "warning"
-  },
-  "routing": {
-    "domainStrategy": "IPIfNonMatch",
-    "rules": [
-      {
-        "type": "field",
-        "domain": [
-          "geosite:category-ads-all"
-        ],
-        "outboundTag": "block"
-      },
-      {
-        "type": "field",
-        "ip": [
-          "geoip:cn"
-        ],
-        "outboundTag": "block"
-      }
-    ]
-  },
+  "log": { "loglevel": "warning" },
   "inbounds": [
     {
       "listen": "0.0.0.0",
       "port": 443,
       "protocol": "vless",
       "settings": {
-        "clients": [
-        ],
+        "clients": [],
         "decryption": "none"
       },
       "streamSettings": {
-        "network": "xhttp",
-        "xhttpSettings": {
-          "path": "/"
-        },
+        "network": "tcp",
         "security": "reality",
         "realitySettings": {
           "show": false,
-          "target": "max.ru:443",
-          "serverNames": [
-            "max.ru",
-            "www.max.ru"
-          ],
-          "minClientVer": "",
-          "maxClientVer": "",
-          "maxTimeDiff": 0,
-          "shortIds": [
-          ]
+          "dest": "max.ru:443",
+          "xver": 0,
+          "serverNames": ["max.ru", "www.max.ru"]
         }
       },
       "sniffing": {
         "enabled": true,
-        "destOverride": [
-          "http",
-          "tls",
-          "quic"
-        ]
+        "destOverride": ["http", "tls", "quic"]
       }
     }
   ],
   "outbounds": [
-    {
-      "protocol": "freedom",
-      "tag": "direct"
-    },
-    {
-      "protocol": "blackhole",
-      "tag": "block"
-    }
-  ],
-  "policy": {
-    "levels": {
-      "0": {
-        "handshake": 3,
-        "connIdle": 180
-      }
-    }
-  }
+    { "protocol": "freedom", "tag": "direct" },
+    { "protocol": "blackhole", "tag": "block" }
+  ]
 }
+
