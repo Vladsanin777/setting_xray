@@ -90,19 +90,21 @@ print-link-for-user-xray() {
     local spx="/"
     local fake=$(jq -r '.inbounds[0].streamSettings.network' "${CONFIG_PATH}")
 
-    local fragment=$(curl -Gso /dev/null -w "%{url_effective}" --data-urlencode "#$1" "" | cut -c 3-)
+    local params=()
+    [[ -n "$security" ]] && params+=(--data-urlencode "security=$security")
+    [[ -n "$flow" ]]     && params+=(--data-urlencode "flow=$flow")
+    [[ -n "$sni" ]]      && params+=(--data-urlencode "sni=$sni")
+    [[ -n "$pbk" ]]      && params+=(--data-urlencode "pbk=$pbk")
+    [[ -n "$sid" ]]      && params+=(--data-urlencode "sid=$sid")
+    [[ -n "$fake" ]]     && params+=(--data-urlencode "type=$fake")
+    
+    params+=(--data-urlencode "fp=chrome")
+    params+=(--data-urlencode "path=/")
+    params+=(--data-urlencode "spx=/")
 
-    local query_string=$(curl -Gso /dev/null -w "%{url_effective}" \
-        --data-urlencode "security=$security" \
-        --data-urlencode "flow=$flow" \
-        --data-urlencode "sni=$sni" \
-        --data-urlencode "fp=chrome" \
-        --data-urlencode "pbk=$pbk" \
-        --data-urlencode "sid=$sid" \
-        --data-urlencode "type=$fake" \
-        --data-urlencode "path=/" \
-        --data-urlencode "spx=/" \
-        "" | cut -d'?' -f2)
+    local query_string=$(curl -Gso /dev/null -w "%{url_effective}" "${params[@]}" "http://localhost" | cut -d'?' -f2)
+
+    local fragment=$(curl -Gso /dev/null -w "%{url_effective}" --data-urlencode "$1" "http://localhost" | cut -d'?' -f2 | sed 's/^.*=//')
 
     local link="${protocol}://${uuid}@${ip}:${port}?${query_string}#${fragment}"
 
